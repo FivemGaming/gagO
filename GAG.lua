@@ -1,57 +1,57 @@
---// SERVICES
-local Players = game:GetService("Players")
+--// Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Backpack = LocalPlayer:WaitForChild("Backpack")
 local GameEvents = ReplicatedStorage:WaitForChild("GameEvents")
 
---// LOAD ReGui
+--// Load ReGui
 local ReGui = loadstring(game:HttpGet("https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua"))()
 ReGui:Init()
 
---// UI WINDOW
+--// UI
 local Window = ReGui:Window({
-    Title = "Grow a Garden - AutoFarm UI",
-    Size = UDim2.fromOffset(300, 230)
+    Title = "Grow a Garden Auto UI",
+    Size = UDim2.fromOffset(300, 200)
 })
 
---// TOGGLES
-local AutoBuySeeds = false
-local AutoBuyGear = false
-local AutoBuyEggs = false
-local AutoPlant = false
-local AutoHarvest = false
+--// Auto-Toggles
+local Flags = {
+    AutoBuySeeds = false,
+    AutoBuyGear = false,
+    AutoBuyEggs = false,
+    AutoPlant = false,
+    AutoHarvest = false,
+}
 
---// AUTO FUNCTIONS
+--// Automation Functions
 local function BuySeed()
-    GameEvents.BuySeedStock:FireServer("Carrot") -- change to your preferred seed
+    GameEvents.BuySeedStock:FireServer("Carrot") -- Replace "Carrot" with desired seed
 end
 
 local function BuyGear()
-    GameEvents.BuyGear:FireServer("Watering_Can") -- example gear
+    GameEvents.BuyGear:FireServer("Watering_Can") -- Replace with actual gear name
 end
 
-local function BuyPetEgg()
-    GameEvents.BuyPet:FireServer("Basic_Egg") -- replace with valid egg name
+local function BuyEgg()
+    GameEvents.BuyPet:FireServer("Basic_Egg") -- Replace with actual egg name
 end
 
 local function PlantAll()
-    local Farm = workspace.Farm:FindFirstChild(LocalPlayer.Name)
-    if not Farm then return end
-
-    local Locations = Farm.Important:WaitForChild("Plant_Locations")
-    for _, spot in ipairs(Locations:GetChildren()) do
-        GameEvents.Plant_RE:FireServer(spot.Position, "Carrot") -- change to your seed
+    local farm = workspace.Farm:FindFirstChild(LocalPlayer.Name)
+    if not farm then return end
+    local locations = farm.Important:WaitForChild("Plant_Locations")
+    for _, plot in ipairs(locations:GetChildren()) do
+        GameEvents.Plant_RE:FireServer(plot.Position, "Carrot") -- Replace with your seed
         wait(0.1)
     end
 end
 
 local function HarvestAll()
-    local Plants = workspace.Farm:FindFirstChild(LocalPlayer.Name).Important.Plants_Physical
-    for _, plant in ipairs(Plants:GetDescendants()) do
+    local plants = workspace.Farm:FindFirstChild(LocalPlayer.Name).Important.Plants_Physical
+    for _, plant in ipairs(plants:GetDescendants()) do
         local prompt = plant:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt and prompt.Enabled then
             fireproximityprompt(prompt)
@@ -60,48 +60,48 @@ local function HarvestAll()
     end
 end
 
---// THREADS
+--// Background Loops
 task.spawn(function()
     while task.wait(2) do
-        if AutoBuySeeds then BuySeed() end
-        if AutoBuyGear then BuyGear() end
-        if AutoBuyEggs then BuyPetEgg() end
+        if Flags.AutoBuySeeds then BuySeed() end
+        if Flags.AutoBuyGear then BuyGear() end
+        if Flags.AutoBuyEggs then BuyEgg() end
     end
 end)
 
 task.spawn(function()
-    while task.wait(5) do
-        if AutoPlant then PlantAll() end
-        if AutoHarvest then HarvestAll() end
+    while task.wait(4) do
+        if Flags.AutoPlant then PlantAll() end
+        if Flags.AutoHarvest then HarvestAll() end
     end
 end)
 
---// UI NODES
-local BuyNode = Window:TreeNode({Title = "Auto Buy 🛒"})
-BuyNode:Checkbox({
+--// UI Elements
+local BuyTab = Window:TreeNode({Title = "Auto Buy"})
+BuyTab:Checkbox({
     Label = "Seeds",
     Value = false,
-    Callback = function(_, val) AutoBuySeeds = val end
+    Callback = function(_, v) Flags.AutoBuySeeds = v end
 })
-BuyNode:Checkbox({
+BuyTab:Checkbox({
     Label = "Gear",
     Value = false,
-    Callback = function(_, val) AutoBuyGear = val end
+    Callback = function(_, v) Flags.AutoBuyGear = v end
 })
-BuyNode:Checkbox({
+BuyTab:Checkbox({
     Label = "Pet Eggs",
     Value = false,
-    Callback = function(_, val) AutoBuyEggs = val end
+    Callback = function(_, v) Flags.AutoBuyEggs = v end
 })
 
-local FarmNode = Window:TreeNode({Title = "Auto Farm 🌱"})
-FarmNode:Checkbox({
-    Label = "Plant Seeds",
+local PlantTab = Window:TreeNode({Title = "Auto Farm"})
+PlantTab:Checkbox({
+    Label = "Auto Plant",
     Value = false,
-    Callback = function(_, val) AutoPlant = val end
+    Callback = function(_, v) Flags.AutoPlant = v end
 })
-FarmNode:Checkbox({
-    Label = "Harvest",
+PlantTab:Checkbox({
+    Label = "Auto Harvest",
     Value = false,
-    Callback = function(_, val) AutoHarvest = val end
+    Callback = function(_, v) Flags.AutoHarvest = v end
 })
