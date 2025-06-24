@@ -55,15 +55,12 @@ local OwnedSeeds = {}
 -- UI Library
 local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'))()
 ReGui:Init()
--- UI Theme: Dark Orange Theme (Inspired by bold contrasts)
-ReGui:DefineTheme("DarkOrangeTheme", {
-    WindowBg = Color3.fromRGB(15, 15, 15),       -- Deep black
-    TitleBarBg = Color3.fromRGB(30, 30, 30),     -- Dark gray
-    FrameBg = Color3.fromRGB(20, 20, 20),        -- Mid-dark gray
-    ButtonsBg = Color3.fromRGB(255, 102, 0),     -- Bright orange
-    TextColor = Color3.fromRGB(255, 255, 255),   -- White text
+ReGui:DefineTheme("GardenTheme", {
+    WindowBg = Accent.Brown,
+    TitleBarBg = Accent.DarkGreen,
+    FrameBg = Accent.DarkGreen,
+    ButtonsBg = Accent.Green,
 })
-
 
 -- Core Functions
 local function GetFarmArea()
@@ -170,7 +167,7 @@ end
 -- UI Creation
 local Window = ReGui:Window({
     Title = "Grow a Garden Auto-Farm",
-    Theme = "DarkOrangeTheme",
+    Theme = "GardenTheme",
     Size = UDim2.fromOffset(350, 500)
 })
 
