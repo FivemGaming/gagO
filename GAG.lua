@@ -37,18 +37,17 @@ local Accent = {
 ReGui:Init({
 	Prefabs = InsertService:LoadLocalAsset(PrefabsId)
 })
-
-ReGui:DefineTheme("PornhubTheme", {
-	WindowBg = Color3.fromRGB(24, 24, 24),               -- Dark background
-	TitleBarBg = Color3.fromRGB(33, 33, 33),              -- Slightly lighter
-	TitleBarBgActive = Color3.fromRGB(255, 102, 0),       -- Pornhub orange
-	ResizeGrab = Color3.fromRGB(255, 102, 0),
-	FrameBg = Color3.fromRGB(30, 30, 30),
-	FrameBgActive = Color3.fromRGB(255, 102, 0),
-	CollapsingHeaderBg = Color3.fromRGB(50, 50, 50),
-	ButtonsBg = Color3.fromRGB(255, 102, 0),
-	CheckMark = Color3.fromRGB(255, 102, 0),
-	SliderGrab = Color3.fromRGB(255, 102, 0),
+ReGui:DefineTheme("GardenTheme", {
+	WindowBg = Accent.Brown,
+	TitleBarBg = Accent.DarkGreen,
+	TitleBarBgActive = Accent.Green,
+    ResizeGrab = Accent.DarkGreen,
+    FrameBg = Accent.DarkGreen,
+    FrameBgActive = Accent.Green,
+	CollapsingHeaderBg = Accent.Green,
+    ButtonsBg = Accent.Green,
+    CheckMark = Accent.Green,
+    SliderGrab = Accent.Green,
 })
 
 --// Dicts
@@ -66,7 +65,7 @@ local SelectedSeed, AutoPlantRandom, AutoPlant, AutoHarvest, AutoBuy, SellThresh
 local function CreateWindow()
 	local Window = ReGui:Window({
 		Title = `{GameInfo.Name} | Depso`,
-        Theme = "PornhubTheme",
+        Theme = "GardenTheme",
 		Size = UDim2.fromOffset(300, 200)
 	})
 	return Window
@@ -126,50 +125,16 @@ local function BuySeed(Seed: string)
 	GameEvents.BuySeedStock:FireServer(Seed)
 end
 
---// Buy all seeds function
 local function BuyAllSelectedSeeds()
-    local Seed = SelectedSeedStock:GetSelected() -- FIXED: Get selected seed name
+    local Seed = SelectedSeedStock.Selected
     local Stock = SeedStock[Seed]
 
-    if not Seed then
-        warn("[AutoBuy] No seed selected.")
-        return
-    end
-
-    if not Stock or Stock <= 0 then
-        warn("[AutoBuy] No stock available for:", Seed)
-        return
-    end
+	if not Stock or Stock <= 0 then return end
 
     for i = 1, Stock do
         BuySeed(Seed)
     end
 end
-
---// Auto-Buy UI section
-local BuyNode = Window:TreeNode({Title="Auto-Buy 🥕"})
-local OnlyShowStock
-
-SelectedSeedStock = BuyNode:Combo({
-	Label = "Seed",
-	Selected = "",
-	GetItems = function()
-		local OnlyStock = OnlyShowStock and OnlyShowStock.Value
-		return GetSeedStock(OnlyStock)
-	end,
-})
-AutoBuy = BuyNode:Checkbox({
-	Value = false,
-	Label = "Enabled"
-})
-OnlyShowStock = BuyNode:Checkbox({
-	Value = false,
-	Label = "Only list stock"
-})
-BuyNode:Button({
-	Text = "Buy all",
-	Callback = BuyAllSelectedSeeds,
-})
 
 local function GetSeedInfo(Seed: Tool): number?
 	local PlantName = Seed:FindFirstChild("Plant_Name")
@@ -263,39 +228,38 @@ local function GetRandomFarmPoint(): Vector3
 end
 
 local function AutoPlantLoop()
-	local Seed = SelectedSeed.Selected
+	for Seed, isSelected in pairs(MultiSelectedSeeds) do
+		if isSelected then
+			local SeedData = OwnedSeeds[Seed]
+			if SeedData then
+				local Count = SeedData.Count
+				local Tool = SeedData.Tool
 
-	local SeedData = OwnedSeeds[Seed]
-	if not SeedData then return end
+				if Count > 0 then
+					EquipCheck(Tool)
 
-    local Count = SeedData.Count
-    local Tool = SeedData.Tool
+					local Planted = 0
+					local Step = 1
 
-	--// Check for stock
-	if Count <= 0 then return end
-
-    local Planted = 0
-	local Step = 1
-
-	--// Check if the client needs to equip the tool
-    EquipCheck(Tool)
-
-	--// Plant at random points
-	if AutoPlantRandom.Value then
-		for i = 1, Count do
-			local Point = GetRandomFarmPoint()
-			Plant(Point, Seed)
-		end
-	end
-	
-	--// Plant on the farmland area
-	for X = X1, X2, Step do
-		for Z = Z1, Z2, Step do
-			if Planted > Count then break end
-			local Point = Vector3.new(X, 0.13, Z)
-
-			Planted += 1
-			Plant(Point, Seed)
+					if AutoPlantRandom.Value then
+						for i = 1, Count do
+							local Point = GetRandomFarmPoint()
+							Plant(Point, Seed)
+							wait(0.05)
+						end
+					else
+						for X = X1, X2, Step do
+							for Z = Z1, Z2, Step do
+								if Planted >= Count then break end
+								local Point = Vector3.new(X, 0.13, Z)
+								Planted += 1
+								Plant(Point, Seed)
+								wait(0.05)
+							end
+						end
+					end
+				end
+			end
 		end
 	end
 end
@@ -482,11 +446,45 @@ local Window = CreateWindow()
 
 --// Auto-Plant
 local PlantNode = Window:TreeNode({Title="Auto-Plant 🥕"})
-SelectedSeed = PlantNode:Combo({
-	Label = "Seed",
-	Selected = "",
-	GetItems = GetSeedStock,
+
+-- Multi-select seed selection
+local MultiSelectedSeeds = {}
+
+local MultiSelectNode = PlantNode:TreeNode({ Title = "Select Seeds 🌱" })
+MultiSelectNode:Button({
+	Text = "Select All",
+	Callback = function()
+		for SeedName in pairs(GetSeedStock()) do
+			MultiSelectedSeeds[SeedName] = true
+		end
+	end
 })
+MultiSelectNode:Button({
+	Text = "Deselect All",
+	Callback = function()
+		for k in pairs(MultiSelectedSeeds) do
+			MultiSelectedSeeds[k] = nil
+		end
+	end
+})
+
+-- Dynamically update checkboxes every 2 seconds
+coroutine.wrap(function()
+	while true do
+		wait(2)
+		MultiSelectNode:Clear()
+		for SeedName in pairs(GetSeedStock()) do
+			MultiSelectNode:Checkbox({
+				Value = MultiSelectedSeeds[SeedName] or false,
+				Label = SeedName,
+				Callback = function(_, val)
+					MultiSelectedSeeds[SeedName] = val
+				end
+			})
+		end
+	end
+end)()
+
 AutoPlant = PlantNode:Checkbox({
 	Value = false,
 	Label = "Enabled"
@@ -497,8 +495,11 @@ AutoPlantRandom = PlantNode:Checkbox({
 })
 PlantNode:Button({
 	Text = "Plant all",
-	Callback = AutoPlantLoop,
+	Callback = function()
+		AutoPlantLoop()
+	end,
 })
+
 
 --// Auto-Harvest
 local HarvestNode = Window:TreeNode({Title="Auto-Harvest 🚜"})
