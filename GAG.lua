@@ -53,7 +53,7 @@ local SeedStock = {}
 local OwnedSeeds = {}
 
 -- UI Library
-local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'))()
+local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/FivemGaming/gagO/refs/heads/main/fivemUI.lua'))()
 ReGui:Init()
 ReGui:DefineTheme("GardenTheme", {
     WindowBg = Accent.Brown,
