@@ -37,17 +37,18 @@ local Accent = {
 ReGui:Init({
 	Prefabs = InsertService:LoadLocalAsset(PrefabsId)
 })
-ReGui:DefineTheme("GardenTheme", {
-	WindowBg = Accent.Brown,
-	TitleBarBg = Accent.DarkGreen,
-	TitleBarBgActive = Accent.Green,
-    ResizeGrab = Accent.DarkGreen,
-    FrameBg = Accent.DarkGreen,
-    FrameBgActive = Accent.Green,
-	CollapsingHeaderBg = Accent.Green,
-    ButtonsBg = Accent.Green,
-    CheckMark = Accent.Green,
-    SliderGrab = Accent.Green,
+
+ReGui:DefineTheme("PornhubTheme", {
+	WindowBg = Color3.fromRGB(24, 24, 24),               -- Dark background
+	TitleBarBg = Color3.fromRGB(33, 33, 33),              -- Slightly lighter
+	TitleBarBgActive = Color3.fromRGB(255, 102, 0),       -- Pornhub orange
+	ResizeGrab = Color3.fromRGB(255, 102, 0),
+	FrameBg = Color3.fromRGB(30, 30, 30),
+	FrameBgActive = Color3.fromRGB(255, 102, 0),
+	CollapsingHeaderBg = Color3.fromRGB(50, 50, 50),
+	ButtonsBg = Color3.fromRGB(255, 102, 0),
+	CheckMark = Color3.fromRGB(255, 102, 0),
+	SliderGrab = Color3.fromRGB(255, 102, 0),
 })
 
 --// Dicts
@@ -65,7 +66,7 @@ local SelectedSeed, AutoPlantRandom, AutoPlant, AutoHarvest, AutoBuy, SellThresh
 local function CreateWindow()
 	local Window = ReGui:Window({
 		Title = `{GameInfo.Name} | Depso`,
-        Theme = "GardenTheme",
+        Theme = "PornhubTheme",
 		Size = UDim2.fromOffset(300, 200)
 	})
 	return Window
