@@ -1,4 +1,12 @@
--- Grow a Garden Autofarm UI (LocalScript version)
+--[[
+    Grow a Garden Autofarm Script (Full Version)
+    Updated: 2025-06-24
+    Author: depso (modded by ChatGPT)
+]]
+
+print("🟢 GAG.lua loaded — version 2025-06-24")
+
+--// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,12 +19,12 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local GameEvents = ReplicatedStorage:WaitForChild("GameEvents")
 local Farms = workspace:WaitForChild("Farm")
 
--- Autofarm variables
+--// Autofarm State
 local AutoPlant = false
 local AutoHarvest = false
 local SelectedSeeds = {}
 
--- UI setup
+--// UI
 local ScreenGui = Instance.new("ScreenGui", PlayerGui)
 ScreenGui.Name = "GardenUI"
 ScreenGui.ResetOnSpawn = false
@@ -27,7 +35,6 @@ MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
 MainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 MainFrame.Active = true
 MainFrame.Draggable = true
-
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
 local Title = Instance.new("TextLabel", MainFrame)
@@ -48,7 +55,6 @@ PageContainer.Size = UDim2.new(1, -120, 1, -40)
 PageContainer.Position = UDim2.new(0, 120, 0, 40)
 PageContainer.BackgroundTransparency = 1
 
--- Tab builder
 local function CreateTab(name)
 	local Button = Instance.new("TextButton", TabHolder)
 	Button.Size = UDim2.new(1, 0, 0, 40)
@@ -76,7 +82,7 @@ end
 local PlantPage = CreateTab("Auto Plant")
 local HarvestPage = CreateTab("Auto Harvest")
 
--- Toggle button
+-- Toggle Builder
 local function CreateToggle(parent, labelText, default, callback, posY)
 	local Toggle = Instance.new("TextButton", parent)
 	Toggle.Size = UDim2.new(0, 150, 0, 30)
@@ -95,18 +101,7 @@ local function CreateToggle(parent, labelText, default, callback, posY)
 	end)
 end
 
--- Seed multi-select UI
-local function GetSeedTools()
-	local seeds = {}
-	for _, container in pairs({Backpack, Character}) do
-		for _, tool in ipairs(container:GetChildren()) do
-			local tag = tool:FindFirstChild("Plant_Name")
-			if tag then seeds[tag.Value] = tool end
-		end
-	end
-	return seeds
-end
-
+-- Multi-Seed Selector
 local SeedLabel = Instance.new("TextLabel", PlantPage)
 SeedLabel.Size = UDim2.new(0, 300, 0, 20)
 SeedLabel.Position = UDim2.new(0, 10, 0, 50)
@@ -126,6 +121,17 @@ Scroll.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 
 local UIList = Instance.new("UIListLayout", Scroll)
 UIList.Padding = UDim.new(0, 4)
+
+local function GetSeedTools()
+	local seeds = {}
+	for _, container in pairs({Backpack, Character}) do
+		for _, tool in ipairs(container:GetChildren()) do
+			local tag = tool:FindFirstChild("Plant_Name")
+			if tag then seeds[tag.Value] = tool end
+		end
+	end
+	return seeds
+end
 
 local function RefreshSeedButtons()
 	for _, btn in pairs(Scroll:GetChildren()) do
@@ -159,7 +165,7 @@ local function RefreshSeedButtons()
 	Scroll.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 10)
 end
 
--- Loop update for seed tools
+-- Live Refresh
 task.spawn(function()
 	while true do
 		RefreshSeedButtons()
@@ -168,15 +174,10 @@ task.spawn(function()
 end)
 
 -- Toggles
-CreateToggle(PlantPage, "Auto Plant", false, function(val)
-	AutoPlant = val
-end, 10)
+CreateToggle(PlantPage, "Auto Plant", false, function(val) AutoPlant = val end, 10)
+CreateToggle(HarvestPage, "Auto Harvest", false, function(val) AutoHarvest = val end, 10)
 
-CreateToggle(HarvestPage, "Auto Harvest", false, function(val)
-	AutoHarvest = val
-end, 10)
-
--- Autofarm logic
+-- Autofarm Logic
 local function GetFarm()
 	for _, farm in pairs(Farms:GetChildren()) do
 		if farm.Important.Data.Owner.Value == LocalPlayer.Name then
@@ -192,7 +193,6 @@ end
 local function AutoPlantLoop()
 	local farm = GetFarm()
 	if not farm then return end
-
 	local locations = farm.Important.Plant_Locations:GetChildren()
 	local seeds = {}
 	for name in pairs(SelectedSeeds) do table.insert(seeds, name) end
@@ -220,12 +220,10 @@ local function HarvestPlants()
 	end
 end
 
--- Main loop
+-- Main Loop
 task.spawn(function()
 	while task.wait(1) do
 		if AutoPlant then AutoPlantLoop() end
 		if AutoHarvest then HarvestPlants() end
 	end
 end)
-
-print("✅ Autofarm UI loaded. Tabs and multi-select working.")
