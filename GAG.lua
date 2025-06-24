@@ -126,16 +126,50 @@ local function BuySeed(Seed: string)
 	GameEvents.BuySeedStock:FireServer(Seed)
 end
 
+--// Buy all seeds function
 local function BuyAllSelectedSeeds()
-    local Seed = SelectedSeedStock.Selected
+    local Seed = SelectedSeedStock:GetSelected() -- FIXED: Get selected seed name
     local Stock = SeedStock[Seed]
 
-	if not Stock or Stock <= 0 then return end
+    if not Seed then
+        warn("[AutoBuy] No seed selected.")
+        return
+    end
+
+    if not Stock or Stock <= 0 then
+        warn("[AutoBuy] No stock available for:", Seed)
+        return
+    end
 
     for i = 1, Stock do
         BuySeed(Seed)
     end
 end
+
+--// Auto-Buy UI section
+local BuyNode = Window:TreeNode({Title="Auto-Buy 🥕"})
+local OnlyShowStock
+
+SelectedSeedStock = BuyNode:Combo({
+	Label = "Seed",
+	Selected = "",
+	GetItems = function()
+		local OnlyStock = OnlyShowStock and OnlyShowStock.Value
+		return GetSeedStock(OnlyStock)
+	end,
+})
+AutoBuy = BuyNode:Checkbox({
+	Value = false,
+	Label = "Enabled"
+})
+OnlyShowStock = BuyNode:Checkbox({
+	Value = false,
+	Label = "Only list stock"
+})
+BuyNode:Button({
+	Text = "Buy all",
+	Callback = BuyAllSelectedSeeds,
+})
 
 local function GetSeedInfo(Seed: Tool): number?
 	local PlantName = Seed:FindFirstChild("Plant_Name")
