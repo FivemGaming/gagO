@@ -1,10 +1,10 @@
 --[[
-    Grow a Garden Auto-Farm Script (Minimalist UI Edition)
+    Grow a Garden Auto-Farm Script
     Features:
-    - Remote harvesting
-    - Smart planting system
-    - Event automation
-    - Inventory management
+    - Remote harvesting (no movement)
+    - Auto-planting
+    - Auto-submit to events
+    - Smart inventory management
     - NoClip support
 ]]
 
@@ -12,29 +12,24 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local PlayerGui = game:GetService("PlayerGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Leaderstats = LocalPlayer.leaderstats
 local Backpack = LocalPlayer.Backpack
 
--- UI Theme
-local MinimalTheme = {
-    WindowBg = Color3.fromRGB(40, 40, 40),
-    TitleBarBg = Color3.fromRGB(30, 30, 30),
-    FrameBg = Color3.fromRGB(50, 50, 50),
-    ButtonsBg = Color3.fromRGB(0, 180, 180),
-    TextColor = Color3.fromRGB(220, 220, 220),
-    AccentColor = Color3.fromRGB(0, 150, 150),
-    BorderColor = Color3.fromRGB(70, 70, 70)
+-- Constants
+local Accent = {
+    DarkGreen = Color3.fromRGB(45, 95, 25),
+    Green = Color3.fromRGB(69, 142, 40),
+    Brown = Color3.fromRGB(26, 20, 8),
 }
 
 -- Core Variables
 local GameEvents = ReplicatedStorage.GameEvents
 local Farms = workspace.Farm
 local MyFarm = Farms:FindFirstChild(LocalPlayer.Name)
-local PlantLocations = MyFarm and MyFarm.Important.Plant_Locations
-local PlantsPhysical = MyFarm and MyFarm.Important.Plants_Physical
+local PlantLocations = MyFarm.Important.Plant_Locations
+local PlantsPhysical = MyFarm.Important.Plants_Physical
 
 -- Harvesting
 local HarvestIgnores = {
@@ -55,38 +50,23 @@ local HarvestEventEnabled = {Value = false}
 
 -- Seed Tracking
 local SeedStock = {}
-local OwnedSeeds = {
-    Carrot = {Count = 0},
-    Blueberry = {Count = 0},
-    Pumpkin = {Count = 0}
-    -- Add more seeds as needed
-}
-
--- Connections
-local connections = {}
+local OwnedSeeds = {}
 
 -- UI Library
 local ReGui = loadstring(game:HttpGet('https://raw.githubusercontent.com/depthso/Dear-ReGui/refs/heads/main/ReGui.lua'))()
 ReGui:Init()
-ReGui:DefineTheme("MinimalCyan", MinimalTheme)
+-- UI Theme: Dark Orange Theme (Inspired by bold contrasts)
+ReGui:DefineTheme("DarkOrangeTheme", {
+    WindowBg = Color3.fromRGB(15, 15, 15),       -- Deep black
+    TitleBarBg = Color3.fromRGB(30, 30, 30),     -- Dark gray
+    FrameBg = Color3.fromRGB(20, 20, 20),        -- Mid-dark gray
+    ButtonsBg = Color3.fromRGB(255, 102, 0),     -- Bright orange
+    TextColor = Color3.fromRGB(255, 255, 255),   -- White text
+})
+
 
 -- Core Functions
-local function SafeGetFarm()
-    if not MyFarm or not MyFarm.Parent then
-        MyFarm = Farms:FindFirstChild(LocalPlayer.Name)
-        if not MyFarm then
-            warn("Farm not found!")
-            return nil
-        end
-        PlantLocations = MyFarm.Important.Plant_Locations
-        PlantsPhysical = MyFarm.Important.Plants_Physical
-    end
-    return MyFarm
-end
-
 local function GetFarmArea()
-    if not SafeGetFarm() then return nil end
-    
     local Dirt = PlantLocations:FindFirstChildOfClass("Part")
     local Center = Dirt:GetPivot()
     local Size = Dirt.Size
@@ -108,26 +88,14 @@ local function GetRandomFarmPoint()
     )
 end
 
-local function GetInvCrops()
-    local crops = {}
-    if LocalPlayer:FindFirstChild("Player_Inventory") then
-        for _, item in ipairs(LocalPlayer.Player_Inventory:GetChildren()) do
-            if item:IsA("NumberValue") then
-                table.insert(crops, {
-                    Name = item.Name,
-                    Value = item.Value
-                })
-            end
-        end
-    end
-    return crops
-end
-
+-- Remote Harvest Function (NEW)
 local function RemoteHarvestPlant(Plant)
+    -- Method 1: Try known harvest event
     local success, err = pcall(function()
         GameEvents.HarvestPlant_RE:FireServer(Plant:GetPivot().Position)
     end)
     
+    -- Method 2: Fallback to proximity prompt
     if not success then
         local Prompt = Plant:FindFirstChildOfClass("ProximityPrompt")
         if Prompt then
@@ -137,50 +105,59 @@ local function RemoteHarvestPlant(Plant)
 end
 
 local function HarvestAllPlants()
-    if not AutoHarvest.Value or not SafeGetFarm() then return end
+    if not AutoHarvest.Value then return end
     
     for _, Plant in pairs(PlantsPhysical:GetDescendants()) do
         if Plant:IsA("Model") and Plant:FindFirstChild("Fruits") then
             local Variant = Plant:FindFirstChild("Variant")
             if not Variant or not HarvestIgnores[Variant.Value] then
                 RemoteHarvestPlant(Plant)
-                task.wait(0.05)
+                task.wait(0.05) -- Fast but safe delay
             end
         end
     end
 end
 
+-- Auto-Plant Function
 local function AutoPlantSeeds()
-    if not AutoPlant.Value or not SelectedSeed.Selected or SelectedSeed.Selected == "" then return end
+    if not AutoPlant.Value then return end
     
-    local SeedData = OwnedSeeds[SelectedSeed.Selected]
+    local Seed = SelectedSeed.Selected
+    if not Seed or Seed == "" then return end
+    
+    local SeedData = OwnedSeeds[Seed]
     if not SeedData or SeedData.Count <= 0 then return end
 
     if AutoPlantRandom.Value then
-        for _ = 1, math.min(SeedData.Count, 10) do -- Limit to 10 plants per cycle
-            GameEvents.Plant_RE:FireServer(GetRandomFarmPoint(), SelectedSeed.Selected)
+        for _ = 1, SeedData.Count do
+            GameEvents.Plant_RE:FireServer(GetRandomFarmPoint(), Seed)
             task.wait(0.1)
         end
     else
-        -- Grid planting logic would go here
+        -- Grid planting logic...
     end
 end
 
+-- Auto-Submit to Events (NEW)
 local function SubmitToEvents()
     if not HarvestEventEnabled.Value then return end
     
     local EventData = PlayerGui:FindFirstChild("HarvestEventUI")
     if not EventData then return end
     
+    -- Get required items from event UI (example)
+    local RequiredItems = {"Apple", "Carrot"} -- Would parse from UI
+    
+    -- Submit each matching item
     for _, Item in pairs(GetInvCrops()) do
-        -- This would need actual event item detection logic
-        if Item.Value > 0 then
+        if table.find(RequiredItems, Item.Name) then
             GameEvents.SubmitEventItem:FireServer(Item.Name)
             task.wait(0.2)
         end
     end
 end
 
+-- Main Loops
 local function NoclipLoop()
     if not NoClip.Value or not LocalPlayer.Character then return end
     for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
@@ -192,140 +169,81 @@ end
 
 -- UI Creation
 local Window = ReGui:Window({
-    Title = "Garden Auto-Farm",
-    Theme = "MinimalCyan",
-    Size = UDim2.fromOffset(300, 450),
-    TitleCentered = true
+    Title = "Grow a Garden Auto-Farm",
+    Theme = "DarkOrangeTheme",
+    Size = UDim2.fromOffset(350, 500)
 })
 
--- Status Bar
-Window:Label({
-    Text = "Status: Ready",
-    Centered = true,
-    TextSize = 12,
-    TextColor = MinimalTheme.ButtonsBg
-})
-
--- Harvest Section
-local HarvestSection = Window:TreeNode({
-    Title = "HARVEST",
-    DefaultOpen = false
-})
-
-HarvestSection:Checkbox({
+-- Harvest Tab
+local HarvestTab = Window:TreeNode({Title = "Harvesting"})
+HarvestTab:Checkbox({
     Label = "Auto-Harvest",
     Value = false,
-    Callback = function(_, val) 
-        AutoHarvest.Value = val 
-        Window:UpdateLabel("Status", "Status: "..(val and "Harvesting" or "Ready"))
-    end
+    Callback = function(_, val) AutoHarvest.Value = val end
 })
 
-HarvestSection:Label({Text = "Ignore Types:", Centered = true})
+HarvestTab:Separator({Text = "Ignore Types:"})
+for variant, _ in pairs(HarvestIgnores) do
+    HarvestTab:Checkbox({
+        Label = variant,
+        Value = false,
+        Callback = function(_, val) HarvestIgnores[variant] = val end
+    })
+end
 
-local IgnoreRow = HarvestSection:Horizontal({Ratio = {1, 1, 1}})
-IgnoreRow:Checkbox({Label = "Normal", Callback = function(_, val) HarvestIgnores.Normal = val end})
-IgnoreRow:Checkbox({Label = "Gold", Callback = function(_, val) HarvestIgnores.Gold = val end})
-IgnoreRow:Checkbox({Label = "Rainbow", Callback = function(_, val) HarvestIgnores.Rainbow = val end})
-
-HarvestSection:Checkbox({
-    Label = "Auto-Submit Events",
+HarvestTab:Checkbox({
+    Label = "Auto-Submit to Events",
     Value = false,
     Callback = function(_, val) HarvestEventEnabled.Value = val end
 })
 
--- Planting Section
-local PlantSection = Window:TreeNode({
-    Title = "PLANTING",
-    DefaultOpen = false
-})
-
-local seedNames = {}
-for name,_ in pairs(OwnedSeeds) do table.insert(seedNames, name) end
-
-PlantSection:Combo({
+-- Plant Tab
+local PlantTab = Window:TreeNode({Title = "Planting"})
+PlantTab:Combo({
     Label = "Seed Type",
     Selected = "",
-    Items = seedNames,
+    Items = {"Carrot", "Blueberry", "Pumpkin"}, -- Would be dynamic
     Callback = function(_, val) SelectedSeed.Selected = val end
 })
 
-PlantSection:Checkbox({
+PlantTab:Checkbox({
     Label = "Auto-Plant",
     Value = false,
-    Callback = function(_, val) 
-        AutoPlant.Value = val
-        Window:UpdateLabel("Status", "Status: "..(val and "Planting" or "Ready"))
-    end
+    Callback = function(_, val) AutoPlant.Value = val end
 })
 
-PlantSection:Checkbox({
+PlantTab:Checkbox({
     Label = "Random Placement",
     Value = false,
     Callback = function(_, val) AutoPlantRandom.Value = val end
 })
 
--- Settings Section
-local SettingsSection = Window:TreeNode({
-    Title = "SETTINGS",
-    DefaultOpen = false
-})
-
-SettingsSection:Checkbox({
-    Label = "Enable NoClip",
+-- Settings Tab
+local SettingsTab = Window:TreeNode({Title = "Settings"})
+SettingsTab:Checkbox({
+    Label = "NoClip",
     Value = false,
-    Callback = function(_, val) 
-        NoClip.Value = val
-        Window:UpdateLabel("Status", "Status: "..(val and "NoClip Active" or "Ready"))
-    end
+    Callback = function(_, val) NoClip.Value = val end
 })
 
-SettingsSection:Slider({
-    Label = "Sell Threshold: 15",
+SettingsTab:Slider({
+    Label = "Sell Threshold",
     Value = 15,
     Min = 1,
     Max = 50,
-    Callback = function(_, val) 
-        SellThreshold.Value = val
-        return "Sell Threshold: "..val
-    end
+    Callback = function(_, val) SellThreshold.Value = val end
 })
 
-SettingsSection:Checkbox({
-    Label = "Auto-Sell When Full",
-    Value = false,
-    Callback = function(_, val) AutoSell.Value = val end
-})
+-- Start Services
+RunService.Stepped:Connect(NoclipLoop)
 
--- Main Loop
-table.insert(connections, RunService.Stepped:Connect(NoclipLoop))
-
-local function MainLoop()
-    while task.wait(1) do
-        local status = "Ready"
-        
-        HarvestAllPlants()
-        AutoPlantSeeds()
-        SubmitToEvents()
-        
-        if AutoHarvest.Value then status = "Harvesting" end
-        if AutoPlant.Value then status = status.." + Planting" end
-        if NoClip.Value then status = status.." (NoClip)" end
-        
-        Window:UpdateLabel("Status", "Status: "..status)
-        
-        if AutoSell.Value and #GetInvCrops() >= SellThreshold.Value then
-            GameEvents.Sell_Inventory:FireServer()
-        end
+while task.wait(1) do
+    HarvestAllPlants()
+    AutoPlantSeeds()
+    SubmitToEvents()
+    
+    -- Auto-sell when inventory full
+    if AutoSell.Value and #GetInvCrops() >= SellThreshold.Value then
+        GameEvents.Sell_Inventory:FireServer()
     end
 end
-
--- Start
-MainLoop()
-
--- Cleanup on script termination
-game:GetService("UserInputService").WindowFocused:Connect(function()
-    for _, conn in ipairs(connections) do 
-        conn:Disconnect() 
-    end
-end)
